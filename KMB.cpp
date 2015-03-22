@@ -1,14 +1,17 @@
-#include <iostream>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graphviz.hpp>
+#include <iostream>
 #include <string>
 #include <fstream>
 
 using namespace std;
 
-typedef boost::adjacency_list <boost::listS, boost::vecS > BoostGraph;
+typedef boost::property < boost::vertex_name_t , unsigned > vertex_p;
+typedef boost::property < boost::edge_weight_t , unsigned > edge_p;
+typedef boost::adjacency_list <boost::listS, boost::vecS, boost::undirectedS, vertex_p, edge_p, boost::no_property > graph_t;
+
 string InputFileName, OutputFileName;
-float multicastFraction = 0.0;
+float MulticastFraction = 0.0;
 
 int main(int argc, char* argv[])
 {
@@ -20,8 +23,8 @@ int main(int argc, char* argv[])
 
     try
     {
-        multicastFraction = stof(string(argv[1]));
-        if(multicastFraction < 0 || multicastFraction > 1)
+        MulticastFraction = stof(string(argv[1]));
+        if(MulticastFraction < 0 || MulticastFraction > 1)
             throw invalid_argument("Fraction should be > 0 and < 1.");
     }
     catch(exception &err)
@@ -39,7 +42,23 @@ int main(int argc, char* argv[])
 
     assert(OutputFile.is_open() && InputFile.is_open() && "Error opening files");
 
-    BoostGraph Network(0);
+    graph_t Network(0);
+    boost::dynamic_properties dp;
+    boost::property_map<graph_t, boost::vertex_name_t>::type name = boost::get(boost::vertex_name, Network);
+    dp.property("node_id", name);
+    boost::property_map<graph_t, boost::edge_weight_t>::type weight = boost::get(boost::edge_weight, Network);
+    dp.property("weight", weight); 
+
+    try
+    {
+        read_graphviz(InputFile, Network, dp, "node_id");
+    }
+    catch(exception &err)
+    {
+        cerr << err.what() << endl;
+        cerr << "read_graphviz failed for " << InputFileName << "\n";
+        return 1;
+    }
 
     return 0;
 }
