@@ -6,9 +6,21 @@
 
 using namespace std;
 
+enum vertex_kmb_color_t { vertex_kmb_color };
+enum edge_penwidth_t { edge_penwidth = 1 };
+
+namespace boost
+{
+    BOOST_INSTALL_PROPERTY(vertex, kmb_color);
+    BOOST_INSTALL_PROPERTY(edge, penwidth);
+}
+
 // BGL types
-typedef boost::property < boost::vertex_name_t , unsigned > vertex_p;
-typedef boost::property < boost::edge_weight_t , unsigned > edge_p;
+typedef boost::property < boost::vertex_name_t , unsigned,
+        boost::property < boost::vertex_color_t, float ,
+        boost::property < vertex_kmb_color_t, string > > > vertex_p;
+typedef boost::property < boost::edge_weight_t , unsigned,
+        boost::property < edge_penwidth_t , unsigned > > edge_p;
 typedef boost::adjacency_list <boost::listS, boost::vecS, boost::undirectedS, vertex_p, edge_p, boost::no_property > graph_t;
 
 typedef boost::graph_traits<graph_t>::vertex_descriptor Vertex;
@@ -17,64 +29,6 @@ typedef boost::graph_traits<graph_t>::edge_descriptor Edge;
 // Global Variables
 string InputFileName, OutputFileName;
 float MulticastFraction = 0.0;
-
-// Edge Writer helper class
-template <class PropertyMap>
-class edge_writer 
-{
-    public:
-        edge_writer(PropertyMap w) : pm(w) {}
-        template <class Edge>
-            void operator()(std::ostream &out, const Edge& e) const {
-                out << "[penwidth=\"" << pm[e] >> "\"]";
-            }
-    private:
-        PropertyMap pm;
-};
-
-template <class PropertyMap>
-    inline edge_writer<PropertyMap> 
-make_edge_writer(PropertyMap w) 
-{
-    return edge_writer<PropertyMap>(w);
-} 
-
-// Vertex Writer helper class
-
-template <class PropertyMap>
-class vertex_writer 
-{
-    public:
-        vertex_writer(PropertyMap w) : pm(w) {}
-        template <class Vertex>
-            void operator()(std::ostream &out, const Vertex& v) const {
-                out << "[";
-                switch(pm[v])
-                {
-                    case 1:
-                        // Multicast Source
-                        out << " style=filled fillcolor=\"red\"]";
-                        break;
-                    case 2:
-                        // Multicast Receivers
-                        out << " style=filled fillcolor=\"grey\"]";
-                        break;
-                    default:
-                        out << "\"]";
-                }
-            }
-    private:
-        PropertyMap pm;
-};
-
-template <class PropertyMap>
-    inline vertex_writer<PropertyMap> 
-make_vertex_writer(PropertyMap w) 
-{
-    return vertex_writer<PropertyMap>(w);
-} 
-
-
 
 int main(int argc, char* argv[])
 {
@@ -109,8 +63,12 @@ int main(int argc, char* argv[])
     boost::dynamic_properties dp;
     boost::property_map<graph_t, boost::vertex_name_t>::type name = boost::get(boost::vertex_name, Network);
     dp.property("node_id", name);
+    boost::property_map<graph_t, vertex_kmb_color_t>::type color = boost::get(vertex_kmb_color, Network);
+    dp.property("fillcolor", color);
     boost::property_map<graph_t, boost::edge_weight_t>::type weight = boost::get(boost::edge_weight, Network);
     dp.property("weight", weight); 
+    boost::property_map<graph_t, edge_penwidth_t>::type penwidth = boost::get(edge_penwidth, Network);
+    dp.property("penwidth", penwidth); 
 
     try
     {
@@ -123,13 +81,16 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    //try
-    //{
-        //write_graphviz(OutputFile, Network,
-                       //make_vertex_writer(boost::get(&vertex_p::)))
-                        ////make_vertex_writer(boost::get(&VertexProp::Type,bbGraph)),
-                        ////make_edge_writer(boost::get(&EdgeProp::Type,bbGraph)));
-    //}
+    try
+    {
+        write_graphviz_dp(OutputFile, Network, dp);
+    }
+    catch(exception &err)
+    {
+        cerr << err.what() << endl;
+        cerr << "write_graphviz failed for " << OutputFileName << "\n";
+        return 1;
+    }
 
     return 0;
 }
