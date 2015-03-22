@@ -5,9 +5,10 @@
 #include <boost/graph/graphviz.hpp>
 
 using namespace std;
+using namespace boost;
 
 enum vertex_kmb_color_t { vertex_kmb_color };
-enum edge_penwidth_t { edge_penwidth = 1 };
+enum edge_penwidth_t { edge_penwidth };
 
 namespace boost
 {
@@ -44,7 +45,7 @@ int main(int argc, char* argv[])
         if(MulticastFraction < 0 || MulticastFraction > 1)
             throw invalid_argument("Fraction should be > 0 and < 1.");
     }
-    catch(exception &err)
+    catch(std::exception &err)
     {
         cerr << err.what() << endl;
         cerr << "Invalid fraction argument\n";
@@ -61,31 +62,44 @@ int main(int argc, char* argv[])
 
     graph_t Network(0);
     boost::dynamic_properties dp;
-    boost::property_map<graph_t, boost::vertex_name_t>::type name = boost::get(boost::vertex_name, Network);
+    auto name = boost::get(boost::vertex_name, Network);
     dp.property("node_id", name);
-    boost::property_map<graph_t, vertex_kmb_color_t>::type color = boost::get(vertex_kmb_color, Network);
-    dp.property("fillcolor", color);
-    boost::property_map<graph_t, boost::edge_weight_t>::type weight = boost::get(boost::edge_weight, Network);
+    auto kmb_color = boost::get(vertex_kmb_color, Network);
+    dp.property("fillcolor", kmb_color);
+    auto weight = boost::get(boost::edge_weight, Network);
     dp.property("weight", weight); 
-    boost::property_map<graph_t, edge_penwidth_t>::type penwidth = boost::get(edge_penwidth, Network);
+    auto penwidth = boost::get(edge_penwidth, Network);
     dp.property("penwidth", penwidth); 
 
     try
     {
         read_graphviz(InputFile, Network, dp, "node_id");
     }
-    catch(exception &err)
+    catch(std::exception &err)
     {
         cerr << err.what() << endl;
         cerr << "read_graphviz failed for " << InputFileName << "\n";
         return 1;
     }
 
+    // Initialize all dynamic properties
+    
+    BGL_FORALL_VERTICES(v, Network, graph_t)
+    {
+        kmb_color[v] = "white";
+    }
+
+    BGL_FORALL_EDGES(e, Network, graph_t)
+    {
+        penwidth[e] = 1;
+        weight[e] = 1;
+    }
+
     try
     {
         write_graphviz_dp(OutputFile, Network, dp);
     }
-    catch(exception &err)
+    catch(std::exception &err)
     {
         cerr << err.what() << endl;
         cerr << "write_graphviz failed for " << OutputFileName << "\n";
