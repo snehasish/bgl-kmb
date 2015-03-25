@@ -106,8 +106,8 @@ int main(int argc, char* argv[])
     NumVertices = boost::num_vertices(Network);
     unsigned NumMulticast = (unsigned)MulticastFraction * NumVertices;
 
+    // Debug
     NumMulticast = 4;
-
     cout << "Num Vertex: " << NumVertices << endl;
     cout << "Num MCast: " << NumMulticast << endl;
 
@@ -123,11 +123,13 @@ int main(int argc, char* argv[])
         //MulticastVertices.insert((Vertex)Dist(Generator));
     //} while( MulticastVertices.size() < NumMulticast);
    
-    // Test for steiner.dot
+    // debug for steiner.dot
     MulticastVertices.insert(0);
     MulticastVertices.insert(1);
     MulticastVertices.insert(2);
     MulticastVertices.insert(3);
+
+    // TODO: Fix possible issue for Vertex descriptor mismatch
 
     // Debug
     ostream dbg(std::cout.rdbuf());
@@ -151,7 +153,9 @@ int main(int argc, char* argv[])
         for(auto W = std::next(V); W != E; W++)
         {
             Vertex Wx = *W; 
+            // Debug
             cout << "Adding Edge (Vx, Wx, D[Wx]): " << Vx << "," << Wx << "," << D[Wx] << endl;
+
             boost::add_edge(Vx, Wx, edge_p(D[Wx],1), G1);
         }
     }
@@ -164,6 +168,7 @@ int main(int argc, char* argv[])
     vector<Vertex> P(num_vertices(G1));
     prim_minimum_spanning_tree(G1, &P[0]);
 
+    // Debug
     for (std::size_t i = 0; i != P.size(); ++i)
     if (P[i] != i)
         std::cout << "Parent[" << i << "] = " << P[i] << std::endl;
@@ -171,6 +176,8 @@ int main(int argc, char* argv[])
         std::cout << "Parent[" << i << "] = no Parent" << std::endl;
 
     // Step 2b -- Trim G1 based on MST
+    
+      
 
     try
     {
