@@ -13,23 +13,6 @@
 using namespace std;
 using namespace boost;
 
-//enum vertex_kmb_color_t { vertex_kmb_color };
-//enum edge_penwidth_t { edge_penwidth };
-
-//namespace boost
-//{
-    //BOOST_INSTALL_PROPERTY(vertex, kmb_color);
-    //BOOST_INSTALL_PROPERTY(edge, penwidth);
-//}
-
-// BGL types
-//typedef boost::property < boost::vertex_name_t , unsigned,
-        //boost::property < boost::vertex_color_t, float ,
-        //boost::property < vertex_kmb_color_t, string > > > vertex_p;
-
-//typedef boost::property < boost::edge_weight_t , double,
-        //boost::property < edge_penwidth_t , unsigned > > edge_p;
-
 // Typedefs for Input and output graphs
 struct vertex_p
 {
@@ -175,7 +158,7 @@ int main(int argc, char* argv[])
     //write_graphviz_dp(dbg, Network, dp);
 
     graph_q_t G1(0);
-    map<int, VertexQ> RMap;
+    map<unsigned, VertexQ> RMap;
 
     for(auto &V : MulticastVertices)
     {
@@ -194,20 +177,21 @@ int main(int argc, char* argv[])
     auto label_q = boost::get(&vertex_q::label, G1);
     dp_q.property("label", label_q);
     write_graphviz_dp(dbg, G1, dp_q);
-
+    
+    map<Vertex, vector<Vertex> > AllPreds;
     // Step 1 -- Construct undirected distance graph G1, G and S.
     for(auto V = MulticastVertices.begin(), E = MulticastVertices.end(); V != E; V++)
     {
         Vertex Vx = *V;
         // Get the shortest path between Vx,All 
         vector<unsigned> D(NumVertices);
-        //dijkstra_shortest_paths(Network, Vx,
-                                //predecessor_map(boost::make_iterator_property_map(P.begin(), get(&vertex_p::name, Network))).
-                                //distance_map(boost::make_iterator_property_map(D.begin(), get(&vertex_p::name, Network)))); 
+
+        AllPreds.insert(pair<Vertex,vector<Vertex> >(Vx, vector<Vertex>(NumVertices)));
                                 
         dijkstra_shortest_paths(Network, Vx,
                                 weight_map(boost::get(&edge_p::weight,Network))
-                                .distance_map(make_iterator_property_map(D.begin(), get(vertex_index, Network))));
+                                .distance_map(make_iterator_property_map(D.begin(), get(vertex_index, Network)))
+                                .predecessor_map(make_iterator_property_map(AllPreds[Vx].begin(), get(vertex_index, Network))));
 
         for(auto W = std::next(V); W != E; W++)
         {
@@ -228,29 +212,35 @@ int main(int argc, char* argv[])
     vector<EdgeQ> st;
     kruskal_minimum_spanning_tree(G1, back_inserter(st), 
                                   weight_map(boost::get(&edge_q::weight, G1)));
-    
-    set<EdgeQ> spanning_tree(st.begin(), st.end());
-
-    for(auto &e : spanning_tree)
-    {
-        cout << "From: " << source(e, G1) << " To: " << target(e, G1) << "\n";
-    }
-
-    BGL_FORALL_EDGES(e, G1, graph_q_t)
-    {
-        
-    }
-
-    // Debug
-    //for (std::size_t i = 0; i != P.size(); ++i)
-    //if (P[i] != i)
-        //std::cout << "Parent[" << i << "] = " << P[i] << std::endl;
-    //else
-        //std::cout << "Parent[" << i << "] = no Parent" << std::endl;
 
     // Step 2b -- Trim G1 based on MST
     
-      
+    set<VertexQ> vKeep, vRemove;
+    set<EdgeQ> eKeep, eRemove;
+
+    for(auto &e : st)
+    {
+        cout << "From: " << source(e, G1) << " To: " << target(e, G1) << "\n";
+        vKeep.insert(source(e, G1)); vKeep.insert(target(e, G1));
+        eKeep.insert(e);
+    }
+
+    BGL_FORALL_VERTICES(v, G1, graph_q_t) 
+    {
+        if(vKeep.count(v) == 0) 
+            vRemove.insert(v);
+    }
+    
+    BGL_FORALL_EDGES(e, G1, graph_q_t)
+    {
+        if(eKeep.count(e) == 0)
+            eRemove.insert(e);
+    }
+
+    for(auto Ex : eRemove) boost::remove_edge(Ex, G1);
+    for(auto Vx : vRemove) boost::remove_vertex(Vx, G1);
+
+    write_graphviz_dp(dbg, G1, dp_q);
 
     //try
     //{
