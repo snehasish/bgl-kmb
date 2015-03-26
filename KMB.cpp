@@ -3,40 +3,75 @@
 #include <fstream>
 #include <set>
 #include <vector>
+#include <map>
 #include <random>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graphviz.hpp>
 #include <boost/graph/dijkstra_shortest_paths.hpp>
-#include <boost/graph/prim_minimum_spanning_tree.hpp>
+#include <boost/graph/kruskal_min_spanning_tree.hpp>
 
 using namespace std;
 using namespace boost;
 
-enum vertex_kmb_color_t { vertex_kmb_color };
-enum edge_penwidth_t { edge_penwidth };
+//enum vertex_kmb_color_t { vertex_kmb_color };
+//enum edge_penwidth_t { edge_penwidth };
 
-namespace boost
-{
-    BOOST_INSTALL_PROPERTY(vertex, kmb_color);
-    BOOST_INSTALL_PROPERTY(edge, penwidth);
-}
+//namespace boost
+//{
+    //BOOST_INSTALL_PROPERTY(vertex, kmb_color);
+    //BOOST_INSTALL_PROPERTY(edge, penwidth);
+//}
 
 // BGL types
-typedef boost::property < boost::vertex_name_t , unsigned,
-        boost::property < boost::vertex_color_t, float ,
-        boost::property < vertex_kmb_color_t, string > > > vertex_p;
-typedef boost::property < boost::edge_weight_t , double,
-        boost::property < edge_penwidth_t , unsigned > > edge_p;
+//typedef boost::property < boost::vertex_name_t , unsigned,
+        //boost::property < boost::vertex_color_t, float ,
+        //boost::property < vertex_kmb_color_t, string > > > vertex_p;
+
+//typedef boost::property < boost::edge_weight_t , double,
+        //boost::property < edge_penwidth_t , unsigned > > edge_p;
+
+// Typedefs for Input and output graphs
+struct vertex_p
+{
+    int name;
+    float color;
+    string fillcolor;
+};
+
+struct edge_p
+{
+    double weight;
+    unsigned penwidth;
+};
+
 typedef boost::adjacency_list <boost::listS, boost::vecS, boost::undirectedS, vertex_p, edge_p, boost::no_property > graph_t;
 
 typedef boost::graph_traits<graph_t>::vertex_descriptor Vertex;
 typedef boost::graph_traits<graph_t>::edge_descriptor Edge;
 
+// Typedefs for intermediate graphs
+
+struct vertex_q
+{
+   unsigned name;
+   unsigned label;
+   float color;
+};
+
+struct edge_q
+{
+    double weight;
+};
+
+typedef boost::adjacency_list <boost::listS, boost::vecS, boost::undirectedS, vertex_q, edge_q, boost::no_property > graph_q_t;
+typedef boost::graph_traits<graph_q_t>::vertex_descriptor VertexQ;
+typedef boost::graph_traits<graph_q_t>::edge_descriptor EdgeQ;
+
 // Global Variables
 string InputFileName, OutputFileName;
 float MulticastFraction = 0.0;
 unsigned NumVertices = 0;
-set<Vertex> MulticastVertices;
+set<unsigned> MulticastVertices;
 
 int main(int argc, char* argv[])
 {
@@ -69,13 +104,13 @@ int main(int argc, char* argv[])
 
     graph_t Network(0);
     boost::dynamic_properties dp;
-    auto name = boost::get(boost::vertex_name, Network);
+    auto name = boost::get(&vertex_p::name, Network);
     dp.property("node_id", name);
-    auto kmb_color = boost::get(vertex_kmb_color, Network);
-    dp.property("fillcolor", kmb_color);
-    auto weight = boost::get(boost::edge_weight, Network);
+    auto fillcolor = boost::get(&vertex_p::fillcolor, Network);
+    dp.property("fillcolor", fillcolor);
+    auto weight = boost::get(&edge_p::weight, Network);
     dp.property("weight", weight); 
-    auto penwidth = boost::get(edge_penwidth, Network);
+    auto penwidth = boost::get(&edge_p::penwidth, Network);
     dp.property("penwidth", penwidth); 
 
     try
@@ -93,7 +128,7 @@ int main(int argc, char* argv[])
     
     BGL_FORALL_VERTICES(v, Network, graph_t)
     {
-        kmb_color[v] = "white";
+        fillcolor[v] = "white";
     }
 
     BGL_FORALL_EDGES(e, Network, graph_t)
@@ -120,75 +155,106 @@ int main(int argc, char* argv[])
 
     //do
     //{
-        //MulticastVertices.insert((Vertex)Dist(Generator));
+        //// Insert Vertex Names ( not Vertex descriptors )
+        //MulticastVertices.insert((unsigned)Dist(Generator));
     //} while( MulticastVertices.size() < NumMulticast);
    
     // debug for steiner.dot
     MulticastVertices.insert(0);
     MulticastVertices.insert(1);
     MulticastVertices.insert(2);
-    MulticastVertices.insert(3);
+    MulticastVertices.insert(8);
 
     // TODO: Fix possible issue for Vertex descriptor mismatch
+    // Note : Vertex Name is an unsigned int which is the same type as 
+    // the Vertex descriptor, however we need to be careful when we are using 
+    // one or the other and convert between them using the name_map
 
     // Debug
     ostream dbg(std::cout.rdbuf());
-    write_graphviz_dp(dbg, Network, dp);
+    //write_graphviz_dp(dbg, Network, dp);
 
-    graph_t G1(0);
-    for(auto &V : MulticastVertices) boost::add_vertex(V, G1);
+    graph_q_t G1(0);
+    map<int, VertexQ> RMap;
+
+    for(auto &V : MulticastVertices)
+    {
+        VertexQ Vx = boost::add_vertex(G1); 
+        cout << Vx << " " << V << "\n";
+        G1[Vx].label = V;
+        G1[Vx].name = Vx;
+        RMap.insert(make_pair(V,Vx));
+    }
+
+
+    // Debug
+    boost::dynamic_properties dp_q;
+    auto name_q = boost::get(&vertex_q::name, G1);
+    dp_q.property("node_id", name_q);
+    auto label_q = boost::get(&vertex_q::label, G1);
+    dp_q.property("label", label_q);
+    write_graphviz_dp(dbg, G1, dp_q);
 
     // Step 1 -- Construct undirected distance graph G1, G and S.
-    
     for(auto V = MulticastVertices.begin(), E = MulticastVertices.end(); V != E; V++)
     {
         Vertex Vx = *V;
         // Get the shortest path between Vx,All 
-        vector<Vertex> P(NumVertices);
         vector<unsigned> D(NumVertices);
+        //dijkstra_shortest_paths(Network, Vx,
+                                //predecessor_map(boost::make_iterator_property_map(P.begin(), get(&vertex_p::name, Network))).
+                                //distance_map(boost::make_iterator_property_map(D.begin(), get(&vertex_p::name, Network)))); 
+                                
         dijkstra_shortest_paths(Network, Vx,
-                                predecessor_map(boost::make_iterator_property_map(P.begin(), get(boost::vertex_index, Network))).
-                                distance_map(boost::make_iterator_property_map(D.begin(), get(boost::vertex_index, Network)))); 
+                                weight_map(boost::get(&edge_p::weight,Network))
+                                .distance_map(make_iterator_property_map(D.begin(), get(vertex_index, Network))));
 
         for(auto W = std::next(V); W != E; W++)
         {
             Vertex Wx = *W; 
-            // Debug
+            //// Debug
             cout << "Adding Edge (Vx, Wx, D[Wx]): " << Vx << "," << Wx << "," << D[Wx] << endl;
-
-            boost::add_edge(Vx, Wx, edge_p(D[Wx],1), G1);
+            EdgeQ e; bool found;
+            boost::tie(e,found) = boost::add_edge(RMap[*V], RMap[*W], G1);
+            G1[e].weight = D[Wx];
         }
     }
 
     // Debug
-    write_graphviz_dp(dbg, G1, dp);
+    write_graphviz_dp(dbg, G1, dp_q);
 
     // Step 2a -- Construct Minimum Spanning Tree from G1
     
-    vector<Vertex> P(num_vertices(G1));
-    prim_minimum_spanning_tree(G1, &P[0]);
+    vector<EdgeQ> spanning_tree;
+    kruskal_minimum_spanning_tree(G1, back_inserter(spanning_tree), 
+                                  weight_map(boost::get(&edge_q::weight, G1)));
+
+    for(auto &e : spanning_tree)
+    {
+        cout << "From: " << source(e, G1) << " To: " << target(e, G1) << "\n";
+    }
 
     // Debug
-    for (std::size_t i = 0; i != P.size(); ++i)
-    if (P[i] != i)
-        std::cout << "Parent[" << i << "] = " << P[i] << std::endl;
-    else
-        std::cout << "Parent[" << i << "] = no Parent" << std::endl;
+    //for (std::size_t i = 0; i != P.size(); ++i)
+    //if (P[i] != i)
+        //std::cout << "Parent[" << i << "] = " << P[i] << std::endl;
+    //else
+        //std::cout << "Parent[" << i << "] = no Parent" << std::endl;
 
     // Step 2b -- Trim G1 based on MST
     
       
 
-    try
-    {
-        write_graphviz_dp(OutputFile, Network, dp);
-    }
-    catch(std::exception &err)
-    {
-        cerr << err.what() << endl;
-        cerr << "write_graphviz failed for " << OutputFileName << "\n";
-        return 1;
-    }
+    //try
+    //{
+        //write_graphviz_dp(OutputFile, Network, dp);
+    //}
+    //catch(std::exception &err)
+    //{
+        //cerr << err.what() << endl;
+        //cerr << "write_graphviz failed for " << OutputFileName << "\n";
+        //return 1;
+    //}
 
-    return 0;
+    //return 0;
 }
