@@ -225,13 +225,20 @@ int main(int argc, char* argv[])
 
     // Step 2a -- Construct Minimum Spanning Tree from G1
     
-    vector<EdgeQ> spanning_tree;
-    kruskal_minimum_spanning_tree(G1, back_inserter(spanning_tree), 
+    vector<EdgeQ> st;
+    kruskal_minimum_spanning_tree(G1, back_inserter(st), 
                                   weight_map(boost::get(&edge_q::weight, G1)));
+    
+    set<EdgeQ> spanning_tree(st.begin(), st.end());
 
     for(auto &e : spanning_tree)
     {
         cout << "From: " << source(e, G1) << " To: " << target(e, G1) << "\n";
+    }
+
+    BGL_FORALL_EDGES(e, G1, graph_q_t)
+    {
+        
     }
 
     // Debug
