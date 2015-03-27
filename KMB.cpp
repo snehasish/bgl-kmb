@@ -381,10 +381,8 @@ int main(int argc, char* argv[])
         for(auto v : to_remove)  
         {
             clear_vertex(v, G2);
-            //remove_vertex(v, G2);
-        }
-        for(auto v : to_remove)  
             remove_vertex(v, G2);
+        }
 
         to_remove.clear();
 
@@ -392,7 +390,7 @@ int main(int argc, char* argv[])
         {
             if(MulticastVertices.count(G2[v].label) == 0 && degree(v, G2) == 1)
             {
-                cout << "Removing: " << v << " " << G2[v].label << "\n";
+                //cout << "Removing: " << v << " " << G2[v].label << "\n";
                 to_remove.insert(v);
             }
         }
@@ -419,7 +417,7 @@ int main(int argc, char* argv[])
         //cout << vx << " " << vy << "\n";
         Edge e; bool f = false;
         tie(e,f) = edge(vx, vy, Network);
-        assert(f && "Edge not found in original graph");
+        assert(f && "Edge not found in original graph!");
         Network[e].penwidth = 5;
     }
 
