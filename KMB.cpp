@@ -374,40 +374,67 @@ int main(int argc, char* argv[])
     // Remove non-steiner leaf nodes
     // Possible optimization : Start from leaf node and delete upwards instead 
     // of iterating over and over the graph and examining each time.
-    
+
     set<VertexQ> to_remove;
     do
     {
-        for(auto &v : to_remove)  
+        for(auto v : to_remove)  
         {
             clear_vertex(v, G2);
-            remove_vertex(v, G2);
+            //remove_vertex(v, G2);
         }
+        for(auto v : to_remove)  
+            remove_vertex(v, G2);
+
         to_remove.clear();
 
         BGL_FORALL_VERTICES(v, G2, graph_q_t)      
         {
-            if(MulticastVertices.count(G2[v].label) == 0)
+            if(MulticastVertices.count(G2[v].label) == 0 && degree(v, G2) == 1)
             {
-               to_remove.insert(v);
+                cout << "Removing: " << v << " " << G2[v].label << "\n";
+                to_remove.insert(v);
             }
         }
 
     } while(to_remove.size() > 0);
 
-    cout << "Step6-----------------------------------\n";
-    
-    //try
-    //{
-    //write_graphviz_dp(OutputFile, Network, dp);
-    //}
-    //catch(std::exception &err)
-    //{
-    //cerr << err.what() << endl;
-    //cerr << "write_graphviz failed for " << OutputFileName << "\n";
-    //return 1;
-    //}
 
-    //return 0;
+    write_graphviz_dp(dbg, G2, dp_q2);
+
+    cout << "Step6-----------------------------------\n";
+
+    // Update the fillcolor and penwidth in the original graph and print it out. 
+
+    for(auto &m : MulticastVertices)
+    {
+        Network[m].fillcolor = string("black");
+    }
+
+    BGL_FORALL_EDGES(ed, G2, graph_q_t)
+    {
+        Vertex vx = G2[source(ed, G2)].label;
+        Vertex vy = G2[target(ed, G2)].label;
+
+        //cout << vx << " " << vy << "\n";
+        Edge e; bool f = false;
+        tie(e,f) = edge(vx, vy, Network);
+        assert(f && "Edge not found in original graph");
+        Network[e].penwidth = 5;
+    }
+
+    try
+    {
+        write_graphviz_dp(OutputFile, Network, dp);
+    }
+    catch(std::exception &err)
+    {
+        cerr << err.what() << endl;
+        cerr << "write_graphviz failed for " << OutputFileName << "\n";
+        return 1;
+    }
+
+    return 0;
 }
+
 
