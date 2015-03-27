@@ -333,6 +333,70 @@ int main(int argc, char* argv[])
 
     write_graphviz_dp(dbg, G2, dp_q2);
 
+    cout << "Step4-----------------------------------\n";
+
+    // Step 4a -- Construct Minimum Spanning Tree from G2
+
+    vector<EdgeQ> st2;
+    kruskal_minimum_spanning_tree(G2, back_inserter(st2), 
+            weight_map(get(&edge_q::weight, G2)));
+
+    // Step 4b -- Trim G2 based on MST
+
+    set<VertexQ> vKeep2, vRemove2;
+    set<EdgeQ> eKeep2, eRemove2;
+
+    for(auto &e : st2)
+    {
+        vKeep2.insert(source(e, G2)); vKeep2.insert(target(e, G2));
+        eKeep2.insert(e);
+    }
+
+    BGL_FORALL_VERTICES(v, G2, graph_q_t) 
+    {
+        if(vKeep2.count(v) == 0) 
+            vRemove2.insert(v);
+    }
+
+    BGL_FORALL_EDGES(e, G2, graph_q_t)
+    {
+        if(eKeep2.count(e) == 0)
+            eRemove2.insert(e);
+    }
+
+    for(auto Ex : eRemove2) remove_edge(Ex, G2);
+    for(auto Vx : vRemove2) remove_vertex(Vx, G2);
+
+    write_graphviz_dp(dbg, G2, dp_q2);
+
+    cout << "Step5-----------------------------------\n";
+
+    // Remove non-steiner leaf nodes
+    // Possible optimization : Start from leaf node and delete upwards instead 
+    // of iterating over and over the graph and examining each time.
+    
+    set<VertexQ> to_remove;
+    do
+    {
+        for(auto &v : to_remove)  
+        {
+            clear_vertex(v, G2);
+            remove_vertex(v, G2);
+        }
+        to_remove.clear();
+
+        BGL_FORALL_VERTICES(v, G2, graph_q_t)      
+        {
+            if(MulticastVertices.count(G2[v].label) == 0)
+            {
+               to_remove.insert(v);
+            }
+        }
+
+    } while(to_remove.size() > 0);
+
+    cout << "Step6-----------------------------------\n";
+    
     //try
     //{
     //write_graphviz_dp(OutputFile, Network, dp);
@@ -346,68 +410,4 @@ int main(int argc, char* argv[])
 
     //return 0;
 }
-
-
-//map<unsigned, VertexQ> labelVertexQmap;
-//set<unsigned> addedLabels;
-//for(auto Vx: vKeep) 
-//{
-//addedLabels.insert(G1[Vx].label);
-//labelVertexQmap.insert(make_pair(G1[Vx].label, Vx));
-//}
-
-//for(auto &Ex : eKeep)
-//{
-//cout << "Source: " << G1[source(Ex,G1)].label << "\n";
-//auto predecessor_map = AllPreds[G1[source(Ex,G1)].label];
-
-//// Traverse from sink to source
-
-//Vertex v = G1[target(Ex, G1)].label;
-//cout << "Target: " << G1[target(Ex,G1)].label << "\n";
-//cout << "Going from: " << v << " -> " << predecessor_map[v] << "\n";
-//bool edge_flag = true;
-//for(Vertex u = predecessor_map[v];          // Start by setting 'u' to the destintaion node's predecessor
-//u != v;                          // Keep tracking the path until we get to the source
-//v = u, u = predecessor_map[v])   // Set the current vertex to the current predecessor, and the predecessor to one level up 
-//{
-//// Get the edge from the Network Graph
-//Edge e; bool f = false;
-//tie(e, f) = edge(u, v, Network);
-//assert(f && "Could not find edge in original graph!");           
-//cout << "Found " << source(e, Network) << " - " << target(e, Network) << "\n";
-//double wt = Network[e].weight;
-
-//if(addedLabels.count(u) == 0)
-//{
-//// Add a vertex and thus also add an edge
-//VertexQ Vx = add_vertex(G1);
-//G1[Vx].label = u;
-//labelVertexQmap.insert(make_pair(u,Vx));
-
-//VertexQ Wx = labelVertexQmap[v];
-//EdgeQ eq; bool fq = false;
-//tie(eq, fq) = add_edge(Vx, Wx, G1);
-//G1[eq].weight = wt;
-//}
-//else
-//{
-//// Label (and thus vertex) already added 
-//// check if edge exists, if not add edge
-//VertexQ Vx = labelVertexQmap[u], Wx = labelVertexQmap[v];
-//EdgeQ eq; bool fq = false;
-//tie(eq, fq) = edge(Vx, Wx, G1);
-//if(!fq)
-//{
-//// Edge not found
-//tie(eq, fq) = add_edge(Vx, Wx, G1);
-//G1[eq].weight = wt;
-//}
-//else
-//edge_flag = false;
-//}
-//}
-//if(edge_flag)
-//remove_edge(Ex, G1); // ??
-//}
 
