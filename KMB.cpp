@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include <random>
+#include <chrono>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graphviz.hpp>
 #include <boost/graph/dijkstra_shortest_paths.hpp>
@@ -191,6 +192,8 @@ int main(int argc, char* argv[])
     map<Vertex, vector<Vertex> > AllPreds;
     map<Vertex, vector<unsigned> > AllDistances;
 
+    auto start_step_1 = chrono::steady_clock::now();
+
     // Step 1 -- Construct undirected distance graph G1, G and S.
     for(auto V = MulticastVertices.begin(), E = MulticastVertices.end(); V != E; V++)
     {
@@ -217,6 +220,9 @@ int main(int argc, char* argv[])
         }
     }
 
+    auto end_step_1 = chrono::steady_clock::now();
+    cout << "[KMB] Step1: "<< chrono::duration <double, milli> (end_step_1-start_step_1).count() << " ms" << endl;
+
 #ifdef DEBUG
     // Debug
     write_graphviz_dp(dbg, G1, dp_q);
@@ -224,6 +230,8 @@ int main(int argc, char* argv[])
 #endif
 
     // Step 2a -- Construct Minimum Spanning Tree from G1
+
+    auto start_step_2 = chrono::steady_clock::now();
 
     vector<EdgeQ> st;
     kruskal_minimum_spanning_tree(G1, back_inserter(st), 
@@ -239,6 +247,9 @@ int main(int argc, char* argv[])
         vKeep.insert(source(e, G1)); vKeep.insert(target(e, G1));
         eKeep.insert(e);
     }
+
+    auto end_step_2 = chrono::steady_clock::now();
+    cout << "[KMB] Step2: "<< chrono::duration <double, milli> (end_step_2-start_step_2).count() << " ms" << endl;
 
 #ifdef DEBUG
     BGL_FORALL_VERTICES(v, G1, graph_q_t) 
@@ -260,6 +271,7 @@ int main(int argc, char* argv[])
     cout << "Step3-----------------------------------\n";
 #endif
 
+    auto start_step_3 = chrono::steady_clock::now();
     // Step 3 -- Add the shortest paths back to G1 (expand each edge)
 
     graph_q_t G2(0);
@@ -330,6 +342,9 @@ int main(int argc, char* argv[])
         }
     }
 
+    auto end_step_3 = chrono::steady_clock::now();
+    cout << "[KMB] Step3: "<< chrono::duration <double, milli> (end_step_3-start_step_3).count() << " ms" << endl;
+
 #ifdef DEBUG
     dynamic_properties dp_q2;
     auto name_q2 = get(&vertex_q::name, G2);
@@ -344,6 +359,7 @@ int main(int argc, char* argv[])
     cout << "Step4-----------------------------------\n";
 #endif
 
+    auto start_step_4 = chrono::steady_clock::now();
     // Step 4a -- Construct Minimum Spanning Tree from G2
 
     vector<EdgeQ> st2;
@@ -376,10 +392,15 @@ int main(int argc, char* argv[])
     for(auto Ex : eRemove2) remove_edge(Ex, G2);
     for(auto Vx : vRemove2) remove_vertex(Vx, G2);
 
+    auto end_step_4 = chrono::steady_clock::now();
+    cout << "[KMB] Step4: "<< chrono::duration <double, milli> (end_step_4-start_step_4).count() << " ms" << endl;
+
 #ifdef DEBUG
     write_graphviz_dp(dbg, G2, dp_q2);
     cout << "Step5-----------------------------------\n";
 #endif
+
+    auto start_step_5 = chrono::steady_clock::now();
 
     // Remove non-steiner leaf nodes
     // Possible optimization : Start from leaf node and delete upwards instead 
@@ -405,6 +426,9 @@ int main(int argc, char* argv[])
             }
         }
     } while(to_remove.size() > 0);
+
+    auto end_step_5 = chrono::steady_clock::now();
+    cout << "[KMB] Step5: "<< chrono::duration <double, milli> (end_step_5-start_step_5).count() << " ms" << endl;
 
 #ifdef DEBUG
     write_graphviz_dp(dbg, G2, dp_q2);
